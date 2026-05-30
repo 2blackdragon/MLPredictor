@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # ML Monitoring сервис — фактические + предсказанные значения CPU
+  # Тестовый сервис НЕ scrape-ится здесь: у него свой Prometheus,
+  # FastAPI читает оттуда напрямую через TEST_PROMETHEUS_URL
+  - job_name: "ml-monitoring"
+    static_configs:
+      - targets: ["ml-monitoring:8000"]
+    metrics_path: /metrics

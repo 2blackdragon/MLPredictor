@@ -1,0 +1,176 @@
+{
+  "title": "CPU Usage — Actual vs Predicted",
+  "uid": "cpu-forecast-v1",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU: Actual vs Predicted (2.5 min ahead)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Predicted CPU" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Actual CPU" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "cpu_usage_actual_percent",
+          "legendFormat": "Actual CPU",
+          "refId": "A"
+        },
+        {
+          "expr": "cpu_usage_predicted_percent",
+          "legendFormat": "Predicted CPU",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Current CPU %",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "cpu_usage_actual_percent", "legendFormat": "Actual", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Predicted CPU in 2.5 min",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "cpu_usage_predicted_percent", "legendFormat": "Predicted", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Prediction Error (|actual - predicted|)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "cpu_prediction_absolute_error_percent", "legendFormat": "Error", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Collector Health (lag seconds)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 45 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "collector_last_update_lag_seconds", "legendFormat": "Lag", "refId": "A" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Prediction Error Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": { "lineWidth": 1, "fillOpacity": 20 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "cpu_prediction_absolute_error_percent",
+          "legendFormat": "Abs Error %",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "pluginId": "prometheus",
+        "hide": 2
+      }
+    ]
+  }
+}

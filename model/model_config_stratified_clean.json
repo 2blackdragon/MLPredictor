@@ -1,0 +1,42 @@
+{
+  "feature_cols": [
+    "cpu_lag_1",
+    "cpu_lag_2",
+    "cpu_lag_3",
+    "cpu_lag_4",
+    "cpu_lag_5",
+    "cpu_lag_8",
+    "cpu_lag_12",
+    "cpu_lag_16",
+    "cpu_lag_20",
+    "cpu_rolling_mean_4",
+    "cpu_rolling_std_4",
+    "cpu_rolling_min_4",
+    "cpu_rolling_max_4",
+    "cpu_rolling_mean_8",
+    "cpu_rolling_std_8",
+    "cpu_rolling_min_8",
+    "cpu_rolling_max_8",
+    "cpu_rolling_mean_12",
+    "cpu_rolling_std_12",
+    "cpu_rolling_min_12",
+    "cpu_rolling_max_12"
+  ],
+  "forecast_horizon": 10,
+  "lag_features": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    8,
+    12,
+    16,
+    20
+  ],
+  "rolling_windows": [
+    4,
+    8,
+    12
+  ]
+}

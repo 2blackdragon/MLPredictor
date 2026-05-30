@@ -1,0 +1,64 @@
+# networks:
+#   test-network:
+#     external: true
+#   internal:
+#     driver: bridge
+
+services:
+
+  # ─── Prometheus (наш) ─────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    # networks:
+    #   - internal
+    restart: unless-stopped
+
+  # ─── ML Monitoring сервис ─────────────────────────────────────────────────────
+  ml-monitoring:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Prometheus тестового сервиса — имя контейнера резолвится через test-network
+      TEST_PROMETHEUS_URL: "http://138.16.162.15:9090"
+      CPU_METRIC_NAME: "cpu_usage_percent"
+      SCRAPE_INTERVAL_SEC: "15"
+      # Наш Prometheus — внутренняя сеть
+      PROMETHEUS_URL: "http://prometheus:9090"
+    # networks:
+    #   - internal      # общается с нашим Prometheus и Grafana
+    #   - test-network  # читает метрики из Prometheus тестового сервиса
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ─── Grafana ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.2.0
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    # networks:
+    #   - internal
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
