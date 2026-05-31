@@ -17,7 +17,7 @@ sum by (handler) (
 """
 
 START = datetime.fromisoformat("2026-05-25T18:42:00+00:00")
-END = datetime.fromisoformat("2026-05-30T00:00:00+00:00")
+END = datetime.fromisoformat("2026-05-31T00:15:20+00:00")
 
 STEP = "15s"
 CHUNK_HOURS = 6
@@ -73,18 +73,33 @@ def fetch_all(query):
 def save_by_handler(results):
     os.makedirs(DATA_DIR, exist_ok=True)
 
+    # 1. Группируем данные по хендлерам и дедуплицируем по таймстампу
+    # Используем словарь {ts: value}, чтобы автоматически убрать дубли на стыках чанков
+    handler_data = {}
+    
     for series in results:
         handler = series["metric"].get("handler", "unknown")
+        if handler not in handler_data:
+            handler_data[handler] = {}
+            
+        for ts, value in series["values"]:
+            handler_data[handler][ts] = value
 
+    # 2. Записываем сгруппированные данные (по одному открытию файла на хендлер)
+    for handler, ts_dict in handler_data.items():
         safe_name = handler.replace("/", "_").replace("\\", "_")
         if safe_name.startswith("_"):
             safe_name = safe_name[1:]
 
         filepath = os.path.join(DATA_DIR, f"{safe_name}_rps.csv")
 
+        # Сортируем таймстампы по возрастанию, чтобы данные шли хронологически
+        sorted_timestamps = sorted(ts_dict.keys(), key=float)
+
         with open(filepath, "w", newline="") as f:
             writer = csv.writer(f)
 
+            # Записываем заголовок один раз для всего файла
             writer.writerow([
                 "timestamp",
                 "datetime_utc",
@@ -92,13 +107,13 @@ def save_by_handler(results):
                 "value"
             ])
 
-            for ts, value in series["values"]:
-                ts = float(ts)
-
-                dt_utc = datetime.utcfromtimestamp(ts)
+            for ts in sorted_timestamps:
+                value = ts_dict[ts]
+                ts_float = float(ts)
+                dt_utc = datetime.utcfromtimestamp(ts_float)
 
                 writer.writerow([
-                    int(ts),
+                    int(ts_float),
                     dt_utc.isoformat(),
                     handler,
                     float(value)

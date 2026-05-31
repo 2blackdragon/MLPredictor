@@ -7,8 +7,11 @@ class Settings(BaseSettings):
     TEST_PROMETHEUS_URL: str = "http://138.16.162.15:9090"
     CPU_METRIC_NAME: str = "cpu_usage_percent"
 
-    # Наш Prometheus — только для хранения предсказаний и экспозиции в Grafana
-    PROMETHEUS_URL: str = "http://prometheus:9090"
+    # InfluxDB — основное хранилище метрик
+    INFLUXDB_URL: str = "http://influxdb:8086"
+    INFLUXDB_TOKEN: str = "my-super-secret-token"
+    INFLUXDB_ORG: str = "mlmonitor"
+    INFLUXDB_BUCKET: str = "cpu_monitor"
 
     # Расписание сбора (должно совпадать с шагом при обучении)
     SCRAPE_INTERVAL_SEC: int = 15

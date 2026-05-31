@@ -1,146 +1,89 @@
 import asyncio
-import logging
 import time
 from collections import deque
-from dataclasses import dataclass, field
-
-from app.config import settings
-from app.prometheus_client import PrometheusClient
+import logging
+from app.influx_client import InfluxWriter
 from app.feature_builder import FeatureBuilder
 from app.predictor import CatBoostPredictor
-import app.metrics_registry as reg
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PredictionRecord:
-    """Сохраняет предсказание с временем его создания."""
-    value: float
-    timestamp: float  # когда было сделано предсказание (unix)
-
-
-@dataclass
 class CollectorState:
-    last_update_ts: float = 0.0
-    errors_total: int = 0
-    last_actual: float | None = None
-    last_predicted: float | None = None
-    last_features: dict = field(default_factory=dict)
-    # Буфер предсказаний — хранит последние FORECAST_HORIZON предсказаний
-    # Когда приходит новое значение, самое старое предсказание "созревает"
-    predictions_buffer: deque = field(default_factory=deque)
-
+    def __init__(self):
+        self.predictions_buffer: deque = deque(maxlen=500)
+        self.errors_total = 0
+        self.last_update_ts: float | None = None
+        self.last_actual: float | None = None
+        self.last_predicted: float | None = None
+        self.last_features: list[float] = []
 
 state = CollectorState()
-
-# Кольцевой буфер последних значений — чтобы не ходить в Prometheus лишний раз
-_value_buffer: list[float] = []
+influx = InfluxWriter()
 
 
 async def _collect_once(
-    prom: PrometheusClient,
+    prom_client,
     builder: FeatureBuilder,
     predictor: CatBoostPredictor,
 ) -> None:
-    global _value_buffer
-
-    # 1. Получаем историю из Prometheus
-    values = await prom.fetch_recent_values(settings.HISTORY_POINTS)
-    if values is None:
+    # 1. Получаем актуальные данные
+    values = await prom_client.fetch_recent_values(settings.HISTORY_POINTS)
+    if values is None or len(values) < settings.HISTORY_POINTS:
+        logger.warning("Not enough data")
         state.errors_total += 1
-        reg.collector_errors_total.set(state.errors_total)
         return
 
-    _value_buffer = values
     actual = values[-1]
     current_ts = time.time()
 
-    # 2. Строим вектор фичей
+    # 2. Предсказание
     try:
-        features_df = builder.build(values)
-    except ValueError as e:
-        logger.warning("Feature build failed: %s", e)
-        state.errors_total += 1
-        reg.collector_errors_total.set(state.errors_total)
-        return
-
-    # 3. Предсказываем
-    try:
+        features_df = builder.build_features(values)
+        features_list = features_df.iloc[0].tolist()
         predicted = predictor.predict(features_df)
     except Exception as e:
-        logger.error("Prediction failed: %s", e)
+        logger.error("Prediction error: %s", e)
         state.errors_total += 1
-        reg.collector_errors_total.set(state.errors_total)
         return
 
-    # 4. Проверяем, "созрело ли" самое старое предсказание
-    #    Когда буфер достигает FORECAST_HORIZON записей, это значит,
-    #    что текущий actual соответствует предсказанию, которое было FORECAST_HORIZON шагов назад
+    horizon_seconds = settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC
+
+    # 3. Записываем в InfluxDB (predicted с будущим временем!)
+    influx.write_cpu_metrics(actual, predicted, horizon_seconds)
+
+    # 4. Оценка ошибки
     if len(state.predictions_buffer) >= settings.FORECAST_HORIZON:
-        old_record = state.predictions_buffer.popleft()
-        error = abs(actual - old_record.value)
-        reg.prediction_error.set(error)
-        age_sec = current_ts - old_record.timestamp
-        logger.info(
-            "Prediction matured: predicted=%.2f%% actual=%.2f%% error=%.3f%% "
-            "(age=%.0fs, ~%.1f min ago)",
-            old_record.value,
-            actual,
-            error,
-            age_sec,
-            age_sec / 60,
-        )
+        old_predicted = state.predictions_buffer.popleft()
+        error = abs(actual - old_predicted)
+        influx.write_error(error)
+        logger.info(f"Prediction matured | error={error:.3f}%")
 
-    # 5. Добавляем текущее предсказание в буфер
-    state.predictions_buffer.append(PredictionRecord(predicted, current_ts))
+    # Добавляем текущее предсказание в буфер
+    state.predictions_buffer.append(predicted)
 
-    # 6. Обновляем Prometheus gauges
-    reg.cpu_actual.set(actual)
-    reg.cpu_predicted.set(predicted)
+    # Лаг
+    lag = time.time() - current_ts
+    influx.write_lag(lag)
 
-    # 7. Обновляем состояние
+    # Обновляем состояние для health endpoint
     state.last_update_ts = current_ts
     state.last_actual = actual
     state.last_predicted = predicted
-    state.last_features = features_df.iloc[0].to_dict()
+    state.last_features = features_list
 
-    reg.collector_lag_seconds.set(0)
-
-    logger.debug(
-        "actual=%.2f%% predicted=%.2f%% buffer_size=%d",
-        actual,
-        predicted,
-        len(state.predictions_buffer),
-    )
-
-
-async def collector_loop(
-    prom: PrometheusClient,
-    builder: FeatureBuilder,
-    predictor: CatBoostPredictor,
-) -> None:
-    """Бесконечный цикл, запускается как asyncio background task."""
     logger.info(
-        "Collector started (interval=%ds, horizon=%d steps = %.0fs)",
-        settings.SCRAPE_INTERVAL_SEC,
-        settings.FORECAST_HORIZON,
-        settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC,
+        f"actual={actual:.2f}% | predicted={predicted:.2f}% (+{horizon_seconds}s)"
     )
+
+
+async def start_collector(prom_client, builder, predictor):
     while True:
-        start = time.monotonic()
         try:
-            await _collect_once(prom, builder, predictor)
+            await _collect_once(prom_client, builder, predictor)
         except Exception as e:
-            logger.exception("Unexpected error in collector: %s", e)
+            logger.error("Collector error: %s", e)
             state.errors_total += 1
-            reg.collector_errors_total.set(state.errors_total)
 
-        # Обновляем lag — сколько секунд с последнего успешного обновления
-        if state.last_update_ts:
-            reg.collector_lag_seconds.set(time.time() - state.last_update_ts)
-
-        # Ждём оставшееся время до следующего тика
-        elapsed = time.monotonic() - start
-        sleep_for = max(0.0, settings.SCRAPE_INTERVAL_SEC - elapsed)
-        await asyncio.sleep(sleep_for)
+        await asyncio.sleep(settings.SCRAPE_INTERVAL_SEC)

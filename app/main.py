@@ -4,14 +4,13 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.prometheus_client import PrometheusClient
 from app.feature_builder import FeatureBuilder
 from app.predictor import CatBoostPredictor
-from app.collector import collector_loop, state
-from app.metrics_registry import metrics_output
+from app.collector import start_collector, state
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +26,7 @@ async def lifespan(app: FastAPI):
     builder = FeatureBuilder()
     predictor = CatBoostPredictor()
 
-    task = asyncio.create_task(collector_loop(prom, builder, predictor))
+    task = asyncio.create_task(start_collector(prom, builder, predictor))
     logger.info("Background collector task started")
 
     yield  # Сервис работает
@@ -47,13 +46,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics():
-    """Prometheus scrape endpoint."""
-    payload, content_type = metrics_output()
-    return Response(content=payload, media_type=content_type)
 
 
 @app.get("/health")
@@ -94,7 +86,7 @@ async def debug_features():
 async def debug_config():
     """Текущий конфиг сервиса."""
     return {
-        "prometheus_url": settings.PROMETHEUS_URL,
+        "data_source_prometheus_url": settings.TEST_PROMETHEUS_URL,
         "cpu_metric": settings.CPU_METRIC_NAME,
         "scrape_interval_sec": settings.SCRAPE_INTERVAL_SEC,
         "forecast_horizon_steps": settings.FORECAST_HORIZON,
@@ -104,4 +96,8 @@ async def debug_config():
         "history_points": settings.HISTORY_POINTS,
         "lag_list": settings.LAG_LIST,
         "rolling_windows": settings.ROLLING_WINDOWS,
+        "storage_backend": "influxdb",
+        "influxdb_url": settings.INFLUXDB_URL,
+        "influxdb_org": settings.INFLUXDB_ORG,
+        "influxdb_bucket": settings.INFLUXDB_BUCKET,
     }

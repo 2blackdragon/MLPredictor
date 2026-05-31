@@ -27,7 +27,7 @@ class FeatureBuilder:
                 names.append(f"cpu_rolling_{stat}_{w}")
         return names
 
-    def build(self, values: list[float]) -> pd.DataFrame:
+    def build_features(self, values: list[float]) -> pd.DataFrame:
         """
         values — список float, последнее значение = values[-1] = текущий CPU.
         Минимальная длина: max(lags) = 20 точек.

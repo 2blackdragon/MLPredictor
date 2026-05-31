@@ -1,64 +1,71 @@
-# networks:
-#   test-network:
-#     external: true
-#   internal:
-#     driver: bridge
+version: '3.9'
 
 services:
-
-  # ─── Prometheus (наш) ─────────────────────────────────────────────────────────
-  prometheus:
-    image: prom/prometheus:v2.54.0
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=7d"
-      - "--web.enable-lifecycle"
+  influxdb:
+    image: influxdb:2.7
     ports:
-      - "9090:9090"
-    # networks:
-    #   - internal
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=mlmonitor
+      - DOCKER_INFLUXDB_INIT_BUCKET=cpu_monitor
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
     restart: unless-stopped
+    networks:
+      - ml_internal
 
-  # ─── ML Monitoring сервис ─────────────────────────────────────────────────────
   ml-monitoring:
     build: .
     ports:
-      - "8000:8000"
+      - "8005:8000"  # Изменено: на хосте порт 8005, внутри контейнера 8000
     environment:
-      # Prometheus тестового сервиса — имя контейнера резолвится через test-network
-      TEST_PROMETHEUS_URL: "http://138.16.162.15:9090"
+      INFLUXDB_URL: "http://influxdb:8086"
+      INFLUXDB_TOKEN: "my-super-secret-token"
+      INFLUXDB_ORG: "mlmonitor"
+      INFLUXDB_BUCKET: "cpu_monitor"
+      # Теперь мы можем дотянуться до Prometheus из банковского проекта напрямую по имени контейнера!
+      TEST_PROMETHEUS_URL: "http://banking-prometheus:9090"
       CPU_METRIC_NAME: "cpu_usage_percent"
       SCRAPE_INTERVAL_SEC: "15"
-      # Наш Prometheus — внутренняя сеть
-      PROMETHEUS_URL: "http://prometheus:9090"
-    # networks:
-    #   - internal      # общается с нашим Prometheus и Grafana
-    #   - test-network  # читает метрики из Prometheus тестового сервиса
     depends_on:
-      - prometheus
+      - influxdb
     restart: unless-stopped
+    networks:
+      - ml_internal
+      - banking_network  # Подключаем к сети банковского проекта
 
-  # ─── Grafana ──────────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:11.2.0
+    ports:
+      - "3005:3000"  # Изменено: на хосте порт 3005, внутри контейнера 3000
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
-    ports:
-      - "3000:3000"
-    # networks:
-    #   - internal
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_ORG: mlmonitor
+      INFLUXDB_BUCKET: cpu_monitor
+      INFLUXDB_TOKEN: my-super-secret-token
     depends_on:
-      - prometheus
+      - influxdb
     restart: unless-stopped
+    networks:
+      - ml_internal
 
 volumes:
-  prometheus_data:
+  influxdb_data:
   grafana_data:
+
+networks:
+  ml_internal:  # Внутренняя сеть только для этого проекта (изоляция Influx и Grafana)
+  banking_network:
+    external: true
+    # Укажите точное имя сети банковского проекта. 
+    # Посмотреть его можно через команду: docker network ls
+    name: docker_default

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 PROMETHEUS_URL = "http://138.16.162.15:9090"
 
 START = datetime.fromisoformat("2026-05-25T18:42:00+00:00")
-END = datetime.fromisoformat("2026-05-30T00:00:00+00:00")
+END = datetime.fromisoformat("2026-05-31T00:15:20+00:00")
 
 STEP = "15s"
 

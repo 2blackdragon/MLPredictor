@@ -2,17 +2,17 @@
   "title": "CPU Usage — Actual vs Predicted",
   "uid": "cpu-forecast-v1",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 4,
   "refresh": "15s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": { "from": "now-15m", "to": "now+5m" },
   "timezone": "browser",
   "panels": [
     {
       "id": 1,
-      "title": "CPU: Actual vs Predicted (2.5 min ahead)",
+      "title": "CPU: Actual vs Predicted (+2.5 min ahead)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -22,7 +22,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Predicted CPU" },
+            "matcher": { "id": "byName", "options": "Predicted CPU (+2.5m)" },
             "properties": [
               { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
               { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
@@ -38,14 +38,14 @@
       },
       "targets": [
         {
-          "expr": "cpu_usage_actual_percent",
-          "legendFormat": "Actual CPU",
-          "refId": "A"
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")",
+          "alias": "Actual CPU"
         },
         {
-          "expr": "cpu_usage_predicted_percent",
-          "legendFormat": "Predicted CPU",
-          "refId": "B"
+          "refId": "B",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m, stop: 5m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")",
+          "alias": "Predicted CPU (+2.5m)"
         }
       ]
     },
@@ -54,7 +54,7 @@
       "title": "Current CPU %",
       "type": "stat",
       "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -69,7 +69,11 @@
         }
       },
       "targets": [
-        { "expr": "cpu_usage_actual_percent", "legendFormat": "Actual", "refId": "A" }
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> last()",
+          "alias": "Actual"
+        }
       ]
     },
     {
@@ -77,7 +81,7 @@
       "title": "Predicted CPU in 2.5 min",
       "type": "stat",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -92,7 +96,11 @@
         }
       },
       "targets": [
-        { "expr": "cpu_usage_predicted_percent", "legendFormat": "Predicted", "refId": "A" }
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m, stop: 5m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> last()",
+          "alias": "Predicted (+2.5m)"
+        }
       ]
     },
     {
@@ -100,7 +108,7 @@
       "title": "Prediction Error (|actual - predicted|)",
       "type": "stat",
       "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -115,7 +123,11 @@
         }
       },
       "targets": [
-        { "expr": "cpu_prediction_absolute_error_percent", "legendFormat": "Error", "refId": "A" }
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) => r._field == \"absolute_percent\")\n  |> last()",
+          "alias": "Error"
+        }
       ]
     },
     {
@@ -123,7 +135,7 @@
       "title": "Collector Health (lag seconds)",
       "type": "stat",
       "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -138,7 +150,11 @@
         }
       },
       "targets": [
-        { "expr": "collector_last_update_lag_seconds", "legendFormat": "Lag", "refId": "A" }
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"collector\")\n  |> filter(fn: (r) => r._field == \"lag_seconds\")\n  |> last()",
+          "alias": "Lag"
+        }
       ]
     },
     {
@@ -146,7 +162,7 @@
       "title": "Prediction Error Over Time",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -156,9 +172,9 @@
       },
       "targets": [
         {
-          "expr": "cpu_prediction_absolute_error_percent",
-          "legendFormat": "Abs Error %",
-          "refId": "A"
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) => r._field == \"absolute_percent\")",
+          "alias": "Abs Error %"
         }
       ]
     }
@@ -166,9 +182,9 @@
   "templating": {
     "list": [
       {
-        "name": "DS_PROMETHEUS",
-        "type": "datasource",
-        "pluginId": "prometheus",
+        "name": "INFLUXDB_BUCKET",
+        "type": "textbox",
+        "current": { "value": "cpu_monitor", "text": "cpu_monitor" },
         "hide": 2
       }
     ]
