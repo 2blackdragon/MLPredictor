@@ -62,6 +62,18 @@ class InfluxWriter:
             self.write_api.write(bucket=self.bucket, record=point)
         except Exception as e:
             logger.error("Failed to write lag metric to InfluxDB: %s", e)
+    
+    def write_ml_metrics(self, r2: float, mae: float, rmse: float):
+        """Записываем метрики качества модели за скользящее окно"""
+        point = Point("ml_quality") \
+            .field("r2", r2) \
+            .field("mae", mae) \
+            .field("rmse", rmse) \
+            .time(datetime.now(timezone.utc), WritePrecision.S)
+        try:
+            self.write_api.write(bucket=self.bucket, record=point)
+        except Exception as e:
+            logger.error("Failed to write ML quality metrics to InfluxDB: %s", e)
 
     def close(self):
         self.client.close()
