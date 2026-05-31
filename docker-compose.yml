@@ -41,7 +41,7 @@ services:
   grafana:
     image: grafana/grafana:11.2.0
     ports:
-      - "3005:3000"  # Изменено: на хосте порт 3005, внутри контейнера 3000
+      - "3005:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -52,9 +52,13 @@ services:
       INFLUXDB_ORG: mlmonitor
       INFLUXDB_BUCKET: cpu_monitor
       INFLUXDB_TOKEN: my-super-secret-token
+      
+      # --- ДОБАВЛЯЕМ ЭТИ ТРИ СТРОКИ ---
+      GF_SECURITY_COOKIE_NAME: grafana_session_ml
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/ml/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     depends_on:
       - influxdb
-    restart: unless-stopped
     networks:
       - ml_internal
 
