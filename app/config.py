@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     HISTORY_POINTS: int = 30            # 30 × 15с = 7.5 мин истории
 
     # Пути к модели
-    MODEL_PATH: str = "model/cpu_forecast_model_stratified_clean.cbm"
-    MODEL_CONFIG_PATH: str = "model/model_config_stratified_clean.json"
+    MODEL_PATH: str = "models/cpu_forecast_model.cbm"
+    MODEL_CONFIG_PATH: str = "models/cpu_forecast.json"
 
     class Config:
         env_file = ".env"

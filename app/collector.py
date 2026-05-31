@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 
 from app.config import settings
@@ -13,12 +14,22 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class PredictionRecord:
+    """Сохраняет предсказание с временем его создания."""
+    value: float
+    timestamp: float  # когда было сделано предсказание (unix)
+
+
+@dataclass
 class CollectorState:
     last_update_ts: float = 0.0
     errors_total: int = 0
     last_actual: float | None = None
     last_predicted: float | None = None
     last_features: dict = field(default_factory=dict)
+    # Буфер предсказаний — хранит последние FORECAST_HORIZON предсказаний
+    # Когда приходит новое значение, самое старое предсказание "созревает"
+    predictions_buffer: deque = field(default_factory=deque)
 
 
 state = CollectorState()
@@ -43,6 +54,7 @@ async def _collect_once(
 
     _value_buffer = values
     actual = values[-1]
+    current_ts = time.time()
 
     # 2. Строим вектор фичей
     try:
@@ -62,24 +74,45 @@ async def _collect_once(
         reg.collector_errors_total.set(state.errors_total)
         return
 
-    # 4. Обновляем Prometheus gauges
+    # 4. Проверяем, "созрело ли" самое старое предсказание
+    #    Когда буфер достигает FORECAST_HORIZON записей, это значит,
+    #    что текущий actual соответствует предсказанию, которое было FORECAST_HORIZON шагов назад
+    if len(state.predictions_buffer) >= settings.FORECAST_HORIZON:
+        old_record = state.predictions_buffer.popleft()
+        error = abs(actual - old_record.value)
+        reg.prediction_error.set(error)
+        age_sec = current_ts - old_record.timestamp
+        logger.info(
+            "Prediction matured: predicted=%.2f%% actual=%.2f%% error=%.3f%% "
+            "(age=%.0fs, ~%.1f min ago)",
+            old_record.value,
+            actual,
+            error,
+            age_sec,
+            age_sec / 60,
+        )
+
+    # 5. Добавляем текущее предсказание в буфер
+    state.predictions_buffer.append(PredictionRecord(predicted, current_ts))
+
+    # 6. Обновляем Prometheus gauges
     reg.cpu_actual.set(actual)
     reg.cpu_predicted.set(predicted)
 
-    # 5. Считаем ошибку предсказания (для мониторинга качества модели)
-    #    Сравниваем текущий actual с тем, что предсказывали FORECAST_HORIZON шагов назад.
-    #    Простой прокси: |actual - predicted| текущего шага (не идеально, но наглядно).
-    reg.prediction_error.set(abs(actual - predicted))
-
-    # 6. Обновляем состояние
-    state.last_update_ts = time.time()
+    # 7. Обновляем состояние
+    state.last_update_ts = current_ts
     state.last_actual = actual
     state.last_predicted = predicted
     state.last_features = features_df.iloc[0].to_dict()
 
     reg.collector_lag_seconds.set(0)
 
-    logger.debug("actual=%.2f%% predicted=%.2f%%", actual, predicted)
+    logger.debug(
+        "actual=%.2f%% predicted=%.2f%% buffer_size=%d",
+        actual,
+        predicted,
+        len(state.predictions_buffer),
+    )
 
 
 async def collector_loop(
