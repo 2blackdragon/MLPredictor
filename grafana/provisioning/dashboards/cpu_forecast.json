@@ -2,272 +2,156 @@
   "title": "CPU Usage — Actual vs Predicted",
   "uid": "cpu-forecast-v1",
   "schemaVersion": 38,
-  "version": 6,
+  "version": 7,
   "refresh": "15s",
-  "time": { "from": "now-15m", "to": "now+5m" },
+  "time": {
+    "from": "now-6h",
+    "to": "now+1h"
+  },
   "timezone": "browser",
+
+  "templating": {
+    "list": [
+      {
+        "name": "INFLUXDB_BUCKET",
+        "type": "textbox",
+        "current": {
+          "value": "cpu_monitor",
+          "text": "cpu_monitor"
+        },
+        "hide": 2
+      }
+    ]
+  },
+
   "panels": [
     {
       "id": 1,
       "title": "CPU: Actual vs Predicted (+2.5 min ahead)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "custom": { "lineWidth": 2, "fillOpacity": 5 }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Predicted CPU (+2.5m)" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Actual CPU" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
-            ]
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5
           }
-        ]
+        }
       },
+
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")",
-          "alias": "Actual CPU"
+          "alias": "Actual CPU",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")"
         },
         {
           "refId": "B",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m, stop: 5m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")",
-          "alias": "Predicted CPU (+2.5m)"
+          "alias": "Predicted CPU (+2.5m)",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")"
         }
       ]
     },
+
     {
       "id": 2,
       "title": "Current CPU %",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
+      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 4 },
+
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 60 },
-              { "color": "red", "value": 85 }
-            ]
-          }
+          "unit": "percent"
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> last()",
-          "alias": "Actual"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> last()"
         }
       ]
     },
+
     {
       "id": 3,
-      "title": "Predicted CPU in 2.5 min",
+      "title": "Predicted CPU",
       "type": "stat",
-      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
+      "gridPos": { "x": 8, "y": 10, "w": 8, "h": 4 },
+
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 60 },
-              { "color": "red", "value": 85 }
-            ]
-          }
+          "unit": "percent"
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m, stop: 5m)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> last()",
-          "alias": "Predicted (+2.5m)"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpu_usage\")\n  |> filter(fn: (r) => r._field == \"percent\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> last()"
         }
       ]
     },
+
     {
       "id": 4,
-      "title": "Prediction Error (|actual - predicted|)",
+      "title": "Prediction Error",
       "type": "stat",
-      "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 4 },
+
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 10 }
-            ]
-          }
+          "unit": "percent"
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) \n=> r._field == \"absolute_percent\")\n  |> last()",
-          "alias": "Error"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) => r._field == \"absolute_percent\")\n  |> last()"
         }
       ]
     },
+
     {
       "id": 5,
-      "title": "Collector Health (lag seconds)",
-      "type": "stat",
-      "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 45 },
-              { "color": "red", "value": 90 }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"collector\")\n  |> filter(fn: (r) => r._field == \"lag_seconds\")\n  |> last()",
-          "alias": "Lag"
-        }
-      ]
-    },
-    {
-      "id": 6,
       "title": "Prediction Error Over Time",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
+
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "color": { "mode": "fixed", "fixedColor": "red" },
-          "custom": { "lineWidth": 1, "fillOpacity": 20 }
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: -15m)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) => r._field == \"absolute_percent\")",
-          "alias": "Abs Error %"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "Model Quality: R² Score",
-      "type": "stat",
-      "gridPos": { "x": 0, "y": 21, "w": 8, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 3,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 0.5 },
-              { "color": "green", "value": 0.8 }
-            ]
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ml_quality\")\n  |> filter(fn: (r) => r._field == \"r2\")\n  |> last()"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Model Quality: MAE",
-      "type": "stat",
-      "gridPos": { "x": 8, "y": 21, "w": 8, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 4 },
-              { "color": "red", "value": 8 }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ml_quality\")\n  |> filter(fn: (r) => r._field == \"mae\")\n  |> last()"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "Model Quality: RMSE",
-      "type": "stat",
-      "gridPos": { "x": 16, "y": 21, "w": 8, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 10 }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ml_quality\")\n  |> filter(fn: (r) => r._field == \"rmse\")\n  |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"prediction_error\")\n  |> filter(fn: (r) => r._field == \"absolute_percent\")"
         }
       ]
     }
-  ],
-  "templating": {
-    "list": [
-      {
-        "name": "INFLUXDB_BUCKET",
-        "type": "textbox",
-        "current": { "value": "cpu_monitor", "text": "cpu_monitor" },
-        "hide": 2
-      }
-    ]
-  }
+  ]
 }
