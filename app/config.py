@@ -20,6 +20,7 @@ class MetricConfig:
         self.model_config_path = model_config_path
         self.lag_list = lag_list or [1, 2, 3, 4, 5, 8, 12, 16, 20]
         self.rolling_windows = rolling_windows or [4, 8, 12]
+        self.handler_mapping: dict[str, int] = {}
         self._load_feature_cols()
 
     def _load_feature_cols(self):
@@ -28,31 +29,32 @@ class MetricConfig:
                 config = json.load(f)
                 self.feature_cols = config.get('feature_cols', [])
                 self.categorical_features = config.get('categorical_features', [])
+                self.handler_mapping = config.get('handler_mapping', {})
         except Exception:
             self.feature_cols = []
             self.categorical_features = []
+            self.handler_mapping = {}
+
+    def get_handler_encoding(self, handler: str) -> int | None:
+        return self.handler_mapping.get(handler)
 
 
 class Settings(BaseSettings):
     TEST_PROMETHEUS_URL: str = "http://138.16.162.15:9090"
 
-    # InfluxDB — основное хранилище метрик
     INFLUXDB_URL: str = "http://influxdb:8086"
     INFLUXDB_TOKEN: str = "my-super-secret-token"
     INFLUXDB_ORG: str = "mlmonitor"
     INFLUXDB_BUCKET: str = "cpu_monitor"
 
-    # Расписание сбора (должно совпадать с шагом при обучении)
     SCRAPE_INTERVAL_SEC: int = 15
 
-    # Параметры модели
-    FORECAST_HORIZON: int = 10          # шагов × 15с = 2.5 мин
+    FORECAST_HORIZON: int = 10
     MAX_LAG: int = 20
     LAG_LIST: list[int] = [1, 2, 3, 4, 5, 8, 12, 16, 20]
     ROLLING_WINDOWS: list[int] = [4, 8, 12]
 
-    # Сколько точек запрашивать из Prometheus (с запасом)
-    HISTORY_POINTS: int = 30            # 30 × 15с = 7.5 мин истории
+    HISTORY_POINTS: int = 30
 
     class Config:
         env_file = ".env"

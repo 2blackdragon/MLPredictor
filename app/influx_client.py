@@ -29,16 +29,25 @@ class InfluxWriter:
         actual: float,
         predicted: float,
         horizon_seconds: int,
+        handler: str | None = None,
     ):
         now = datetime.now(timezone.utc)
 
-        point_actual = Point(measurement).tag("type", "actual").field("value", actual).time(now, WritePrecision.S)
+        point_actual = Point(measurement).tag("type", "actual")
+        if handler:
+            point_actual = point_actual.tag("handler", handler)
+        point_actual = point_actual.field("value", actual).time(now, WritePrecision.S)
 
         future_time = now.timestamp() + horizon_seconds
         point_predicted = (
             Point(measurement)
             .tag("type", "predicted")
             .tag("horizon", f"{horizon_seconds}s")
+        )
+        if handler:
+            point_predicted = point_predicted.tag("handler", handler)
+        point_predicted = (
+            point_predicted
             .field("value", predicted)
             .time(int(future_time * 1000), WritePrecision.MS)
         )
@@ -49,12 +58,11 @@ class InfluxWriter:
             logger.error("Failed to write metrics for '%s' to InfluxDB: %s", metric_type, e)
             raise
 
-    def write_error(self, metric_type: str, error: float):
-        point = (
-            Point(f"{metric_type}_error")
-            .field("absolute", error)
-            .time(datetime.now(timezone.utc), WritePrecision.S)
-        )
+    def write_error(self, metric_type: str, error: float, handler: str | None = None):
+        point = Point(f"{metric_type}_error").field("absolute", error)
+        if handler:
+            point = point.tag("handler", handler)
+        point = point.time(datetime.now(timezone.utc), WritePrecision.S)
         try:
             self.write_api.write(self.bucket, record=point)
         except Exception as e:
@@ -71,14 +79,16 @@ class InfluxWriter:
         except Exception as e:
             logger.error("Failed to write lag metric for '%s' to InfluxDB: %s", metric_type, e)
 
-    def write_ml_metrics(self, metric_type: str, r2: float, mae: float, rmse: float):
+    def write_ml_metrics(self, metric_type: str, r2: float, mae: float, rmse: float, handler: str | None = None):
         point = (
             Point(f"{metric_type}_ml_quality")
             .field("r2", r2)
             .field("mae", mae)
             .field("rmse", rmse)
-            .time(datetime.now(timezone.utc), WritePrecision.S)
         )
+        if handler:
+            point = point.tag("handler", handler)
+        point = point.time(datetime.now(timezone.utc), WritePrecision.S)
         try:
             self.write_api.write(self.bucket, record=point)
         except Exception as e:
