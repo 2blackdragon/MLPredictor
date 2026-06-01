@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.prometheus_client import PrometheusClient
 from app.feature_builder import FeatureBuilder
-from app.predictor import CatBoostPredictor
-from app.collector import start_collector, state
+from app.predictor import MetricPredictor
+from app.collector import start_collectors, metric_states
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,61 +21,80 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Инициализация при старте
-    prom = PrometheusClient()
-    builder = FeatureBuilder()
-    predictor = CatBoostPredictor()
+    prom_client = PrometheusClient(settings.TEST_PROMETHEUS_URL)
 
-    task = asyncio.create_task(start_collector(prom, builder, predictor))
-    logger.info("Background collector task started")
+    feature_builders = {}
+    predictors = {}
 
-    yield  # Сервис работает
+    for metric_type in ["cpu", "rps", "error_rate"]:
+        metric_config = settings.get_metric_config(metric_type)
+        feature_builders[metric_type] = FeatureBuilder(metric_config)
+        predictors[metric_type] = MetricPredictor(metric_config)
+        logger.info("Initialized %s metric", metric_type)
 
-    # Завершение
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    logger.info("Collector task stopped")
+    tasks = await start_collectors(prom_client, feature_builders, predictors)
+    logger.info("All background collector tasks started")
+
+    yield
+
+    for task in tasks:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    logger.info("All collector tasks stopped")
 
 
 app = FastAPI(
-    title="CPU Forecast Monitoring",
-    description="Сервис мониторинга CPU с ML-прогнозом на 2.5 минуты вперёд",
-    version="1.0.0",
+    title="Multi-Metric Forecast Monitoring",
+    description="Сервис мониторинга CPU, RPS, Error Rate с ML-прогнозом на 2.5 минуты вперёд",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
 
 @app.get("/health")
 async def health():
-    """Проверка работоспособности сервиса."""
-    now = time.time()
-    last_ok = state.last_update_ts
+    results = {}
+    for metric_type in ["cpu", "rps", "error_rate"]:
+        state = metric_states[metric_type]
+        now = time.time()
+        last_ok = state.last_update_ts
 
-    lag = now - last_ok if last_ok else None
-    healthy = lag is not None and lag < settings.SCRAPE_INTERVAL_SEC * 3
+        lag = now - last_ok if last_ok else None
+        healthy = lag is not None and lag < settings.SCRAPE_INTERVAL_SEC * 3
 
-    return JSONResponse(
-        status_code=200 if healthy else 503,
-        content={
+        results[metric_type] = {
             "status": "ok" if healthy else "degraded",
             "last_update_lag_seconds": round(lag, 1) if lag else None,
             "errors_total": state.errors_total,
-            "last_actual_cpu": state.last_actual,
-            "last_predicted_cpu": state.last_predicted,
+            "last_actual": state.last_actual,
+            "last_predicted": state.last_predicted,
             "forecast_horizon_seconds": (
                 settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC
             ),
+        }
+
+    overall_healthy = all(r["status"] == "ok" for r in results.values())
+
+    return JSONResponse(
+        status_code=200 if overall_healthy else 503,
+        content={
+            "overall_status": "ok" if overall_healthy else "degraded",
+            "metrics": results,
         },
     )
 
 
-@app.get("/debug/features")
-async def debug_features():
-    """Последний вектор фичей — удобно при отладке."""
+@app.get("/debug/features/{metric_type}")
+async def debug_features(metric_type: str):
+    if metric_type not in metric_states:
+        return {"error": f"Unknown metric type: {metric_type}"}, 404
+
+    state = metric_states[metric_type]
     return {
+        "metric_type": metric_type,
         "feature_count": len(state.last_features),
         "features": state.last_features,
         "last_update_ts": state.last_update_ts,
@@ -84,10 +103,8 @@ async def debug_features():
 
 @app.get("/debug/config")
 async def debug_config():
-    """Текущий конфиг сервиса."""
     return {
-        "data_source_prometheus_url": settings.TEST_PROMETHEUS_URL,
-        "cpu_metric": settings.CPU_METRIC_NAME,
+        "prometheus_url": settings.TEST_PROMETHEUS_URL,
         "scrape_interval_sec": settings.SCRAPE_INTERVAL_SEC,
         "forecast_horizon_steps": settings.FORECAST_HORIZON,
         "forecast_horizon_seconds": (

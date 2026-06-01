@@ -2,151 +2,159 @@ import asyncio
 import time
 from collections import deque
 import logging
+import math
+
 from app.influx_client import InfluxWriter
 from app.feature_builder import FeatureBuilder
-from app.predictor import CatBoostPredictor
+from app.predictor import MetricPredictor
+from app.prometheus_client import PrometheusClient
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-import math  # Добавьте импорт в начало файла
-
-class CollectorState:
-    def __init__(self):
+class MetricCollectorState:
+    def __init__(self, metric_type: str):
+        self.metric_type = metric_type
         self.predictions_buffer: deque = deque(maxlen=500)
-        
-        # --- НОВЫЕ БУФЕРЫ ДЛЯ РАСЧЕТА МЕТРИК КАЧЕСТВА ---
-        # Храним последние 100 созревших точек для оценки скользящего качества
         self.actual_history: deque = deque(maxlen=100)
         self.predicted_history: deque = deque(maxlen=100)
-        
         self.errors_total = 0
         self.last_update_ts: float | None = None
         self.last_actual: float | None = None
         self.last_predicted: float | None = None
         self.last_features: list[float] = []
 
-def calculate_ml_metrics(self) -> dict[str, float] | None:
+    def calculate_ml_metrics(self) -> dict[str, float] | None:
         n = len(self.actual_history)
-        # Нам нужно накопить хотя бы 15-20 точек для адекватного R2
-        if n < 15: 
+        if n < 15:
             return None
-            
+
         y_true = list(self.actual_history)
         y_pred = list(self.predicted_history)
-        
-        # 1. MAE
+
         mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / n
-        
-        # 2. RMSE
         mse = sum((t - p) ** 2 for t, p in zip(y_true, y_pred)) / n
         rmse = math.sqrt(mse)
-        
-        # 3. R^2 Score с защитой
+
         mean_true = sum(y_true) / n
         ss_res = sum((t - p) ** 2 for t, p in zip(y_true, y_pred))
         ss_tot = sum((t - mean_true) ** 2 for t in y_true)
-        
-        # Если дисперсии факта почти нет (平), R2 не имеет математического смысла. Установим 1.0, если ошибок нет, или 0.0
+
         if ss_tot < 1e-5:
             r2 = 1.0 if ss_res < 1e-5 else 0.0
         else:
             r2 = 1.0 - (ss_res / ss_tot)
-            
-        # Ограничиваем снизу здравым смыслом (например, -1.0), чтобы не ломать графики гигантскими минусами
+
         r2 = max(r2, -1.0)
-        
+
         return {"r2": r2, "mae": mae, "rmse": rmse}
 
 
-state = CollectorState()
+# Состояния для каждой метрики
+metric_states = {
+    "cpu": MetricCollectorState("cpu"),
+    "rps": MetricCollectorState("rps"),
+    "error_rate": MetricCollectorState("error_rate"),
+}
+
 influx = InfluxWriter()
 
 
 async def _collect_once(
-    prom_client,
+    metric_type: str,
+    prom_client: PrometheusClient,
     builder: FeatureBuilder,
-    predictor: CatBoostPredictor,
+    predictor: MetricPredictor,
 ) -> None:
-    # 1. Получаем актуальные данные
-    values = await prom_client.fetch_recent_values(settings.HISTORY_POINTS)
+    state = metric_states[metric_type]
+    metric_config = predictor.metric_config
+
+    values = await prom_client.fetch_recent_values(
+        metric_config.prometheus_query,
+        settings.HISTORY_POINTS,
+        settings.SCRAPE_INTERVAL_SEC,
+    )
     if values is None or len(values) < settings.HISTORY_POINTS:
-        logger.warning("Not enough data")
+        logger.warning("Not enough data for %s", metric_type)
         state.errors_total += 1
         return
 
     actual = values[-1]
     current_ts = time.time()
 
-    # 2. Предсказание
     try:
         features_df = builder.build_features(values)
         features_list = features_df.iloc[0].tolist()
         predicted = predictor.predict(features_df)
     except Exception as e:
-        logger.error("Prediction error: %s", e)
+        logger.error("Prediction error for %s: %s", metric_type, e)
         state.errors_total += 1
         return
 
     horizon_seconds = settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC
 
-    # 3. Записываем в InfluxDB (predicted с будущим временем!)
-    influx.write_cpu_metrics(actual, predicted, horizon_seconds)
+    influx.write_metric(
+        metric_type,
+        metric_config.influx_measurement,
+        actual,
+        predicted,
+        horizon_seconds,
+    )
 
-    # 4. Оценка ошибки
-    # 4. Оценка ошибки и расчет метрик качества
     if len(state.predictions_buffer) >= settings.FORECAST_HORIZON:
         old_predicted = state.predictions_buffer.popleft()
         error = abs(actual - old_predicted)
-        influx.write_error(error)
-        
-        # --- НОВЫЙ БЛОК РАСЧЕТА МЕТРИК МcontentОДЕЛИ ---
-        # Добавляем созревшую пару (факт и его прогноз) в историю качества
+        influx.write_error(metric_type, error)
+
         state.actual_history.append(actual)
         state.predicted_history.append(old_predicted)
-        
-        # Считаем метрики
+
         metrics = state.calculate_ml_metrics()
         if metrics:
-            # Отправляем пачкой в InfluxDB (метод write_ml_metrics напишем ниже)
             influx.write_ml_metrics(
-                r2=metrics["r2"], 
-                mae=metrics["mae"], 
-                rmse=metrics["rmse"]
+                metric_type,
+                r2=metrics["r2"],
+                mae=metrics["mae"],
+                rmse=metrics["rmse"],
             )
             logger.info(
-                f"Metrics updated (window={len(state.actual_history)}) | "
-                f"R²={metrics['r2']:.3f} | MAE={metrics['mae']:.2f}% | RMSE={metrics['rmse']:.2f}%"
+                f"[{metric_type}] Metrics updated (window={len(state.actual_history)}) | "
+                f"R²={metrics['r2']:.3f} | MAE={metrics['mae']:.2f} | RMSE={metrics['rmse']:.2f}"
             )
-        # ---------------------------------------------
-        
-        logger.info(f"Prediction matured | error={error:.3f}%")
 
-    # Добавляем текущее предсказание в буфер
+        logger.info(f"[{metric_type}] Prediction matured | error={error:.3f}")
+
     state.predictions_buffer.append(predicted)
 
-    # Лаг
     lag = time.time() - current_ts
-    influx.write_lag(lag)
+    influx.write_lag(metric_type, lag)
 
-    # Обновляем состояние для health endpoint
     state.last_update_ts = current_ts
     state.last_actual = actual
     state.last_predicted = predicted
     state.last_features = features_list
 
-    logger.info(
-        f"actual={actual:.2f}% | predicted={predicted:.2f}% (+{horizon_seconds}s)"
-    )
+    logger.info(f"[{metric_type}] actual={actual:.2f} | predicted={predicted:.2f} (+{horizon_seconds}s)")
 
 
-async def start_collector(prom_client, builder, predictor):
+async def start_metric_collector(metric_type: str, prom_client, feature_builders, predictors):
+    builder = feature_builders[metric_type]
+    predictor = predictors[metric_type]
+
     while True:
         try:
-            await _collect_once(prom_client, builder, predictor)
+            await _collect_once(metric_type, prom_client, builder, predictor)
         except Exception as e:
-            logger.error("Collector error: %s", e)
-            state.errors_total += 1
+            logger.error("[%s] Collector error: %s", metric_type, e)
+            metric_states[metric_type].errors_total += 1
 
         await asyncio.sleep(settings.SCRAPE_INTERVAL_SEC)
+
+
+async def start_collectors(prom_client, feature_builders, predictors):
+    tasks = [
+        asyncio.create_task(start_metric_collector(metric_type, prom_client, feature_builders, predictors))
+        for metric_type in ["cpu", "rps", "error_rate"]
+    ]
+    return tasks

@@ -1,34 +1,28 @@
 import time
 import logging
 import httpx
-
-from app.config import settings
+from app.config import MetricConfig
 
 logger = logging.getLogger(__name__)
 
 
 class PrometheusClient:
-    """Читает метрики из Prometheus через HTTP API."""
+    def __init__(self, base_url: str):
+        self.base_url = base_url
 
-    def __init__(self):
-        # Читаем из Prometheus тестового сервиса, не из нашего
-        self.base_url = settings.TEST_PROMETHEUS_URL
-        self.query = "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))"
-
-    async def fetch_recent_values(self, n_points: int) -> list[float] | None:
-        """
-        Запрашивает последние n_points значений cpu_usage_percent.
-        Возвращает список float отсортированный по времени (старые → новые),
-        или None если данных недостаточно / Prometheus недоступен.
-        """
-        step = settings.SCRAPE_INTERVAL_SEC
+    async def fetch_recent_values(
+        self,
+        query: str,
+        n_points: int,
+        scrape_interval: int,
+    ) -> list[float] | None:
+        step = scrape_interval
         end = time.time()
-        # Запрашиваем с небольшим запасом по времени
         start = end - (n_points + 5) * step
 
         url = f"{self.base_url}/api/v1/query_range"
         params = {
-            "query": self.query,
+            "query": query,
             "start": start,
             "end": end,
             "step": step,
@@ -50,10 +44,9 @@ class PrometheusClient:
 
         results = data["data"]["result"]
         if not results:
-            logger.warning("No results for metric '%s'", self.query)
+            logger.warning("No results for metric")
             return None
 
-        # Берём первый (и обычно единственный) временной ряд
         values: list[float] = [float(v) for _, v in results[0]["values"]]
 
         if len(values) < n_points:
@@ -62,13 +55,11 @@ class PrometheusClient:
             )
             return None
 
-        # Возвращаем последние n_points
         return values[-n_points:]
 
-    async def fetch_current_value(self) -> float | None:
-        """Текущее (instant) значение метрики."""
+    async def fetch_current_value(self, query: str) -> float | None:
         url = f"{self.base_url}/api/v1/query"
-        params = {"query": self.query}
+        params = {"query": query}
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
