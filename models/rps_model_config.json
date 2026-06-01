@@ -1,0 +1,56 @@
+{
+  "feature_cols": [
+    "rps_lag_1",
+    "rps_lag_2",
+    "rps_lag_3",
+    "rps_lag_4",
+    "rps_lag_5",
+    "rps_lag_8",
+    "rps_lag_12",
+    "rps_lag_16",
+    "rps_lag_20",
+    "rps_rolling_mean_4",
+    "rps_rolling_std_4",
+    "rps_rolling_min_4",
+    "rps_rolling_max_4",
+    "rps_rolling_mean_8",
+    "rps_rolling_std_8",
+    "rps_rolling_min_8",
+    "rps_rolling_max_8",
+    "rps_rolling_mean_12",
+    "rps_rolling_std_12",
+    "rps_rolling_min_12",
+    "rps_rolling_max_12",
+    "handler_encoded"
+  ],
+  "categorical_features": [
+    "handler_encoded"
+  ],
+  "forecast_horizon": 10,
+  "lag_features": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    8,
+    12,
+    16,
+    20
+  ],
+  "rolling_windows": [
+    4,
+    8,
+    12
+  ],
+  "cv_method": "TimeSeriesSplit",
+  "n_folds": 5,
+  "handler_mapping": {
+    "/accounts/": 0,
+    "/transfers/": 1,
+    "/users/": 2
+  },
+  "avg_test_mae": 0.4516885835727368,
+  "avg_test_rmse": 0.9825164546494409,
+  "avg_test_r2": 0.9927157704228964
+}

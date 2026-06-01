@@ -1,0 +1,47 @@
+{
+  "feature_cols": [
+    "error_rate_lag_1",
+    "error_rate_lag_2",
+    "error_rate_lag_3",
+    "error_rate_lag_4",
+    "error_rate_lag_5",
+    "error_rate_lag_8",
+    "error_rate_lag_12",
+    "error_rate_lag_16",
+    "error_rate_lag_20",
+    "error_rate_rolling_mean_4",
+    "error_rate_rolling_std_4",
+    "error_rate_rolling_min_4",
+    "error_rate_rolling_max_4",
+    "error_rate_rolling_mean_8",
+    "error_rate_rolling_std_8",
+    "error_rate_rolling_min_8",
+    "error_rate_rolling_max_8",
+    "error_rate_rolling_mean_12",
+    "error_rate_rolling_std_12",
+    "error_rate_rolling_min_12",
+    "error_rate_rolling_max_12"
+  ],
+  "forecast_horizon": 10,
+  "lag_features": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    8,
+    12,
+    16,
+    20
+  ],
+  "rolling_windows": [
+    4,
+    8,
+    12
+  ],
+  "cv_method": "TimeSeriesSplit",
+  "n_folds": 5,
+  "avg_test_mae": 0.002933029489292649,
+  "avg_test_rmse": 0.008543614542183064,
+  "avg_test_r2": 0.5449109254116016
+}

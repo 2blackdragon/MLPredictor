@@ -38,5 +38,10 @@
     4,
     8,
     12
-  ]
+  ],
+  "cv_method": "TimeSeriesSplit",
+  "n_folds": 5,
+  "avg_test_mae": 1.4160424047121996,
+  "avg_test_rmse": 2.384784893560466,
+  "avg_test_r2": 0.9841079076333177
 }
