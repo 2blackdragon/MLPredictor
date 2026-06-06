@@ -40,7 +40,6 @@
         "defaults": {
           "unit": "percentunit",
           "min": 0,
-          "max": 1,
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 5
@@ -239,7 +238,6 @@
         "defaults": {
           "unit": "percentunit",
           "min": 0,
-          "max": 1,
           "color": { "mode": "fixed", "fixedColor": "red" },
           "custom": {
             "lineWidth": 1,
