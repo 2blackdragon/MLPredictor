@@ -109,7 +109,7 @@ async def _collect_once(
     state = metric_states[metric_type]
     metric_config = predictor.metric_config
     current_ts = time.time()
-    horizon_seconds = settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC
+    horizon_seconds = metric_config.forecast_horizon_seconds
 
     if metric_type == "rps":
         await _collect_rps_per_handler(prom_client, builder, predictor, metric_config, horizon_seconds)
@@ -127,21 +127,27 @@ async def _collect_single_metric(
     current_ts: float,
 ) -> None:
     metric_config = predictor.metric_config
+    history_points = metric_config.min_history_points
 
     values = await prom_client.fetch_recent_values(
         metric_config.prometheus_query,
-        settings.HISTORY_POINTS,
-        settings.SCRAPE_INTERVAL_SEC,
+        history_points,
+        metric_config.scrape_interval_sec,
     )
-    if values is None or len(values) < settings.HISTORY_POINTS:
-        logger.warning("Not enough data for %s", metric_type)
+    if values is None or len(values) < history_points:
+        logger.warning(
+            "Not enough data for %s (need %d, got %s)",
+            metric_type,
+            history_points,
+            None if values is None else len(values),
+        )
         state.errors_total += 1
         return
 
     actual = values[-1]
 
     try:
-        features_df = builder.build_features(values)
+        features_df = builder.build_features(values, current_ts=current_ts)
         features_list = features_df.iloc[0].tolist()
         predicted = predictor.predict(features_df)
     except Exception as e:
@@ -157,7 +163,7 @@ async def _collect_single_metric(
         horizon_seconds,
     )
 
-    if len(state.predictions_buffer) >= settings.FORECAST_HORIZON:
+    if len(state.predictions_buffer) >= metric_config.forecast_horizon_steps:
         old_predicted = state.predictions_buffer.popleft()
         error = abs(actual - old_predicted)
         influx.write_error(metric_type, error)
@@ -202,10 +208,11 @@ async def _collect_rps_per_handler(
 ) -> None:
     current_ts = time.time()
 
+    history_points = metric_config.min_history_points
     handler_values = await prom_client.fetch_recent_values_per_series(
         metric_config.prometheus_query,
-        settings.HISTORY_POINTS,
-        settings.SCRAPE_INTERVAL_SEC,
+        history_points,
+        metric_config.scrape_interval_sec,
         label_name="handler",
     )
 
@@ -215,7 +222,7 @@ async def _collect_rps_per_handler(
         return
 
     for handler, values in handler_values.items():
-        if len(values) < settings.HISTORY_POINTS:
+        if len(values) < history_points:
             logger.warning("Not enough data for handler %s", handler)
             continue
 
@@ -227,7 +234,11 @@ async def _collect_rps_per_handler(
         actual = values[-1]
 
         try:
-            features_df = builder.build_features(values, categorical_value=handler_encoding)
+            features_df = builder.build_features(
+                values,
+                categorical_value=handler_encoding,
+                current_ts=current_ts,
+            )
             features_list = features_df.iloc[0].tolist()
             predicted = predictor.predict(features_df)
         except Exception as e:
@@ -248,7 +259,7 @@ async def _collect_rps_per_handler(
 
         state = handler_states[handler]
 
-        if len(state.predictions_buffer) >= settings.FORECAST_HORIZON:
+        if len(state.predictions_buffer) >= metric_config.forecast_horizon_steps:
             old_predicted = state.predictions_buffer.popleft()
             error = abs(actual - old_predicted)
             influx.write_error("rps", error, handler=handler)

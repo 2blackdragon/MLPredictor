@@ -8,8 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.prometheus_client import PrometheusClient
-from app.feature_builder import FeatureBuilder
-from app.predictor import MetricPredictor
+from app.feature_builder import build_feature_builder
+from app.predictor import build_predictor
 from app.collector import start_collectors, metric_states
 
 logging.basicConfig(
@@ -28,9 +28,15 @@ async def lifespan(app: FastAPI):
 
     for metric_type in ["cpu", "rps", "error_rate"]:
         metric_config = settings.get_metric_config(metric_type)
-        feature_builders[metric_type] = FeatureBuilder(metric_config)
-        predictors[metric_type] = MetricPredictor(metric_config)
-        logger.info("Initialized %s metric", metric_type)
+        feature_builders[metric_type] = build_feature_builder(metric_config)
+        predictors[metric_type] = build_predictor(metric_config)
+        logger.info(
+            "Initialized %s metric (model_type=%s, horizon=%ds, history=%d pts)",
+            metric_type,
+            metric_config.model_type,
+            metric_config.forecast_horizon_seconds,
+            metric_config.min_history_points,
+        )
 
     tasks = await start_collectors(prom_client, feature_builders, predictors)
     logger.info("All background collector tasks started")
@@ -71,9 +77,9 @@ async def health():
             "errors_total": state.errors_total,
             "last_actual": state.last_actual,
             "last_predicted": state.last_predicted,
-            "forecast_horizon_seconds": (
-                settings.FORECAST_HORIZON * settings.SCRAPE_INTERVAL_SEC
-            ),
+            "forecast_horizon_seconds": settings.get_metric_config(
+                metric_type
+            ).forecast_horizon_seconds,
         }
 
     overall_healthy = all(r["status"] == "ok" for r in results.values())
