@@ -2,8 +2,8 @@
   "title": "CPU Usage — Actual vs Predicted",
   "uid": "cpu-forecast-v1",
   "schemaVersion": 38,
-  "version": 10,
-  "refresh": "1m",
+  "version": 11,
+  "refresh": "15s",
   "time": {
     "from": "now-6h",
     "to": "now+1h"
@@ -29,7 +29,7 @@
       "id": 1,
       "title": "CPU Usage: Actual (Solid) vs Predicted (Dash, +5m ahead)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 12 },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
@@ -42,7 +42,14 @@
           {
             "matcher": { "id": "byRegexp", "options": "/.*predicted.*/" },
             "properties": [
-              { "id": "custom.lineStyle", "value": { "dash": [6, 4] } }
+              { "id": "custom.lineStyle", "value": { "dash": [6, 4] } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "/.*actual.*/" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
             ]
           }
         ]
@@ -58,37 +65,142 @@
         }
       ]
     },
+
     {
-      "id": 4,
-      "title": "24h Prediction Error",
+      "id": 2,
+      "title": "Current CPU Usage",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": { "defaults": { "unit": "percent" } },
-      "targets": [
-        {
-          "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"cpu_error\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Prediction Error Over Time",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
-          "custom": { "lineWidth": 1.5, "fillOpacity": 10 }
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
         }
       },
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"cpu_error\") |> filter(fn: (r) => r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"Error\" }))"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"cpu_usage\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "title": "Predicted CPU Usage (5 min ahead)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_usage\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "Prediction Absolute Error",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"cpu_error\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "Collector Lag",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"collector_lag\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Prediction Error Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "alias": "Abs Error",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"cpu_error\") |> filter(fn: (r) => r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"Abs Error\" }))"
         }
       ]
     }

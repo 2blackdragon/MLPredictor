@@ -27,7 +27,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Error Rate: Actual vs Predicted (+2.5 min ahead)",
+      "title": "Error Rate: Actual vs Predicted (+5 min ahead)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
 
@@ -48,7 +48,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Predicted Error Rate (+2.5m)" },
+            "matcher": { "id": "byName", "options": "Predicted Error Rate (+5m)" },
             "properties": [
               {
                 "id": "color",
@@ -80,8 +80,8 @@
         },
         {
           "refId": "B",
-          "alias": "Predicted Error Rate (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"])"
+          "alias": "Predicted Error Rate (+5m)",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"])"
         }
       ]
     },
@@ -123,7 +123,7 @@
 
     {
       "id": 3,
-      "title": "Predicted Error Rate (2.5 min ahead)",
+      "title": "Predicted Error Rate (5 min ahead)",
       "type": "stat",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
 
@@ -151,7 +151,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"]) |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"]) |> last()"
         }
       ]
     },
