@@ -34,10 +34,34 @@
   "forecast_horizon_steps": 20,
   "forecast_horizon_seconds": 300,
   "scrape_interval_sec": 15,
-  "lags": [1, 2, 4, 8, 16, 32, 60, 120, 240],
-  "rolling_windows": [4, 20, 60, 120, 240],
-  "ewm_spans": [4, 20, 60],
+  "lags": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    60,
+    120,
+    240
+  ],
+  "rolling_windows": [
+    4,
+    20,
+    60,
+    120,
+    240
+  ],
+  "ewm_spans": [
+    4,
+    20,
+    60
+  ],
   "min_history_points": 241,
   "alpha": 10.0,
-  "note": "Placeholder pending notebook re-run; values match the saved model bundle (cpu_forecast_model.joblib) produced by training/cpu_walkforward.ipynb section 11.5."
+  "walk_forward_5min": {
+    "MAE": 1.4046419195499837,
+    "RMSE": 1.6980829988174644,
+    "R2": -25.494070404808134
+  }
 }
