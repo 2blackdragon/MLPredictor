@@ -27,7 +27,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "CPU Usage: Actual (Solid) vs Predicted (Dash, +2.5m ahead)",
+      "title": "CPU Usage: Actual (Solid) vs Predicted (Dash, +5m ahead)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 12 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
@@ -54,7 +54,7 @@
         },
         {
           "refId": "B",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_usage\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"CPU Usage (predicted)\" }))"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpu_usage\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"CPU Usage (predicted)\" }))"
         }
       ]
     },
