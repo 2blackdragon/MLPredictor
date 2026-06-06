@@ -1,14 +1,15 @@
 {
   "title": "RPS — Actual vs Predicted by Handler",
-  "uid": "rps-forecast-v2",
+  "uid": "rps-forecast-v3",
   "schemaVersion": 38,
-  "version": 1,
-  "refresh": "15s",
+  "version": 12,
+  "refresh": "1m",
   "time": {
     "from": "now-6h",
     "to": "now+1h"
   },
   "timezone": "browser",
+
   "templating": {
     "list": [
       {
@@ -22,34 +23,25 @@
       }
     ]
   },
+
   "panels": [
     {
       "id": 1,
-      "title": "RPS: Total Actual vs Predicted (+2.5 min ahead)",
+      "title": "RPS by Handler: Actual (Solid) vs Predicted (Dash, +2.5m ahead)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 12 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
           "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5
-          }
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Predicted RPS (+2.5m)" },
+            "matcher": { "id": "byRegexp", "options": "/.*predicted.*/" },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Actual RPS" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+              { "id": "custom.lineStyle", "value": { "dash": [6, 4] } }
             ]
           }
         ]
@@ -57,145 +49,73 @@
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual RPS",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> group(columns: [\"_time\"])\n  |> sum()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"rps\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _field: r.handler + \" (actual)\" }))"
         },
         {
           "refId": "B",
-          "alias": "Predicted RPS (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> group(columns: [\"_time\"])\n  |> sum()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"rps\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _field: r.handler + \" (predicted)\" }))"
         }
       ]
     },
     {
       "id": 2,
-      "title": "RPS: /accounts/ — Actual vs Predicted",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 7 },
+      "title": "24h Error /accounts/",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Predicted RPS (+2.5m)" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Actual RPS" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
-            ]
-          }
-        ]
-      },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual RPS",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> filter(fn: (r) => r.handler == \"/accounts/\")"
-        },
-        {
-          "refId": "B",
-          "alias": "Predicted RPS (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> filter(fn: (r) => r.handler == \"/accounts/\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"rps_error\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.handler == \"/accounts/\") |> last()"
         }
       ]
     },
     {
       "id": 3,
-      "title": "RPS: /transfers/ — Actual vs Predicted",
-      "type": "timeseries",
-      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 7 },
+      "title": "24h Error /users/",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Predicted RPS (+2.5m)" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Actual RPS" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
-            ]
-          }
-        ]
-      },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual RPS",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> filter(fn: (r) => r.handler == \"/transfers/\")"
-        },
-        {
-          "refId": "B",
-          "alias": "Predicted RPS (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> filter(fn: (r) => r.handler == \"/transfers/\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"rps_error\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.handler == \"/users/\") |> last()"
         }
       ]
     },
     {
       "id": 4,
-      "title": "RPS: /users/ — Actual vs Predicted",
+      "title": "24h Error /transfers/",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 4 },
+      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"rps_error\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.handler == \"/transfers/\") |> last()"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Prediction Error Over Time by Handler",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 7 },
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "percent",
           "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Predicted RPS (+2.5m)" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Actual RPS" },
-            "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
-            ]
-          }
-        ]
+          "custom": { "lineWidth": 1.5, "fillOpacity": 10 }
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual RPS",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> filter(fn: (r) => r.handler == \"/users/\")"
-        },
-        {
-          "refId": "B",
-          "alias": "Predicted RPS (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"rps\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> filter(fn: (r) => r.handler == \"/users/\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"rps_error\") |> filter(fn: (r) => r._field == \"value\") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> map(fn: (r) => ({ r with _field: r.handler }))"
         }
       ]
     }

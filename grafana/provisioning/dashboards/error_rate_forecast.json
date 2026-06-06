@@ -2,13 +2,14 @@
   "title": "Error Rate — Actual vs Predicted",
   "uid": "error-rate-forecast-v1",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "refresh": "15s",
   "time": {
     "from": "now-6h",
     "to": "now+1h"
   },
   "timezone": "browser",
+
   "templating": {
     "list": [
       {
@@ -22,13 +23,19 @@
       }
     ]
   },
+
   "panels": [
     {
       "id": 1,
       "title": "Error Rate: Actual vs Predicted (+2.5 min ahead)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -43,37 +50,53 @@
           {
             "matcher": { "id": "byName", "options": "Predicted Error Rate (+2.5m)" },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+              {
+                "id": "color",
+                "value": { "mode": "fixed", "fixedColor": "orange" }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": { "dash": [8, 4] }
+              }
             ]
           },
           {
             "matcher": { "id": "byName", "options": "Actual Error Rate" },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+              {
+                "id": "color",
+                "value": { "mode": "fixed", "fixedColor": "green" }
+              }
             ]
           }
         ]
       },
+
       "targets": [
         {
           "refId": "A",
           "alias": "Actual Error Rate",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"error_rate\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> drop(columns: [\"metric\", \"type\", \"handler\"])"
         },
         {
           "refId": "B",
           "alias": "Predicted Error Rate (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"error_rate\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"])"
         }
       ]
     },
+
     {
       "id": 2,
       "title": "Current Error Rate",
       "type": "stat",
       "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -89,20 +112,26 @@
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual Error Rate",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"error_rate\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"actual\")\n  |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
         }
       ]
     },
+
     {
       "id": 3,
       "title": "Predicted Error Rate (2.5 min ahead)",
       "type": "stat",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -118,20 +147,26 @@
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "alias": "Predicted Error Rate (+2.5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"error_rate\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\")\n  |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"150s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"]) |> last()"
         }
       ]
     },
+
     {
       "id": 4,
       "title": "Prediction Absolute Error",
       "type": "stat",
       "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -147,20 +182,26 @@
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "alias": "Error",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"error_rate_error\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate_error\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
         }
       ]
     },
+
     {
       "id": 5,
       "title": "Collector Lag",
       "type": "stat",
       "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -174,20 +215,26 @@
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
-          "alias": "Lag",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"collector\")\n  |> filter(fn: (r) => r._field == \"lag_seconds\")\n  |> last()"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"collector_lag\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> last()"
         }
       ]
     },
+
     {
       "id": 6,
       "title": "Prediction Error Over Time",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
-      "datasource": { "type": "influxdb", "uid": "InfluxDB" },
+
+      "datasource": {
+        "type": "influxdb",
+        "uid": "InfluxDB"
+      },
+
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -200,11 +247,12 @@
           }
         }
       },
+
       "targets": [
         {
           "refId": "A",
           "alias": "Abs Error",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\")\n  |> range(start: v.timeRangeStart)\n  |> filter(fn: (r) => r._measurement == \"error_rate_error\")\n  |> filter(fn: (r) => r._field == \"value\")"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate_error\") |> filter(fn: (r) => r._field == \"value\") |> drop(columns: [\"metric\", \"type\", \"handler\"])"
         }
       ]
     }
