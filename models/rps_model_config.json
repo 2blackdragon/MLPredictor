@@ -1,56 +1,103 @@
 {
+  "model_type": "ridge",
+  "metric_type": "rps",
+  "per_handler": true,
   "feature_cols": [
-    "rps_lag_1",
-    "rps_lag_2",
-    "rps_lag_3",
-    "rps_lag_4",
-    "rps_lag_5",
-    "rps_lag_8",
-    "rps_lag_12",
-    "rps_lag_16",
-    "rps_lag_20",
-    "rps_rolling_mean_4",
-    "rps_rolling_std_4",
-    "rps_rolling_min_4",
-    "rps_rolling_max_4",
-    "rps_rolling_mean_8",
-    "rps_rolling_std_8",
-    "rps_rolling_min_8",
-    "rps_rolling_max_8",
-    "rps_rolling_mean_12",
-    "rps_rolling_std_12",
-    "rps_rolling_min_12",
-    "rps_rolling_max_12",
-    "handler_encoded"
+    "lag_1",
+    "lag_2",
+    "lag_4",
+    "lag_8",
+    "lag_16",
+    "lag_32",
+    "lag_60",
+    "lag_120",
+    "lag_240",
+    "roll_mean_4",
+    "roll_mean_20",
+    "roll_mean_60",
+    "roll_mean_120",
+    "roll_mean_240",
+    "roll_std_4",
+    "roll_std_20",
+    "roll_std_60",
+    "roll_std_120",
+    "roll_std_240",
+    "ewm_4",
+    "ewm_20",
+    "ewm_60",
+    "hour_sin",
+    "hour_cos",
+    "minute_sin",
+    "minute_cos",
+    "diff_1",
+    "diff_20"
   ],
-  "categorical_features": [
-    "handler_encoded"
-  ],
-  "forecast_horizon": 10,
-  "lag_features": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    8,
-    12,
-    16,
-    20
-  ],
-  "rolling_windows": [
-    4,
-    8,
-    12
-  ],
-  "cv_method": "TimeSeriesSplit",
-  "n_folds": 5,
+  "categorical_features": [],
   "handler_mapping": {
     "/accounts/": 0,
     "/transfers/": 1,
     "/users/": 2
   },
-  "avg_test_mae": 0.4516885835727368,
-  "avg_test_rmse": 0.9825164546494409,
-  "avg_test_r2": 0.9927157704228964
+  "forecast_horizon_steps": 20,
+  "forecast_horizon_seconds": 300,
+  "scrape_interval_sec": 15,
+  "lags": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    60,
+    120,
+    240
+  ],
+  "rolling_windows": [
+    4,
+    20,
+    60,
+    120,
+    240
+  ],
+  "ewm_spans": [
+    4,
+    20,
+    60
+  ],
+  "min_history_points": 241,
+  "alpha": 10.0,
+  "per_handler_in_sample": {
+    "/accounts/": {
+      "MAE": 0.9220188004801704,
+      "RMSE": 1.8277459220362728,
+      "R2": 0.9671001926639936
+    },
+    "/transfers/": {
+      "MAE": 1.16490305225491,
+      "RMSE": 2.211732321050154,
+      "R2": 0.9658657817058854
+    },
+    "/users/": {
+      "MAE": 0.029905918907667344,
+      "RMSE": 0.043021686697498104,
+      "R2": 0.898512025948421
+    }
+  },
+  "walk_forward_5min": {
+    "/accounts/": {
+      "MAE": 0.841376881620754,
+      "RMSE": 0.9958300160586312,
+      "R2": -10.68935513234734
+    },
+    "/transfers/": {
+      "MAE": 0.9897569087203036,
+      "RMSE": 1.1587141997225363,
+      "R2": -11.24257413777551
+    },
+    "/users/": {
+      "MAE": 0.023696121717634654,
+      "RMSE": 0.02812831955032623,
+      "R2": -3.9583335236874646
+    }
+  }
 }
