@@ -6,70 +6,11 @@ import pandas as pd
 from app.config import MetricConfig
 
 
-class FeatureBuilder:
+class RidgeFeatureBuilder:
     """
-    CatBoost-style feature builder.
-    Used for RPS / error_rate metrics.
-    """
-
-    def __init__(self, metric_config: MetricConfig):
-        self.metric_config = metric_config
-        self.metric_type = metric_config.metric_type
-        self.lags = metric_config.lag_list
-        self.windows = metric_config.rolling_windows
-        self.categorical_features = metric_config.categorical_features
-
-    @property
-    def feature_names(self) -> list[str]:
-        names = []
-        for lag in self.lags:
-            names.append(f"{self.metric_type}_lag_{lag}")
-        for w in self.windows:
-            for stat in ("mean", "std", "min", "max"):
-                names.append(f"{self.metric_type}_rolling_{stat}_{w}")
-        return names
-
-    @property
-    def min_history_points(self) -> int:
-        return max(self.lags + self.windows)
-
-    def build_features(
-        self,
-        values: list[float],
-        categorical_value: int | None = None,
-        current_ts: float | None = None,  # noqa: ARG002 — accepted for interface parity
-    ) -> pd.DataFrame:
-        if len(values) < max(self.lags):
-            raise ValueError(
-                f"Need at least {max(self.lags)} points, got {len(values)}"
-            )
-
-        arr = np.array(values, dtype=float)
-        row: dict[str, float] = {}
-
-        for lag in self.lags:
-            row[f"{self.metric_type}_lag_{lag}"] = float(arr[-lag])
-
-        for w in self.windows:
-            window_vals = arr[-w:]
-            row[f"{self.metric_type}_rolling_mean_{w}"] = float(np.mean(window_vals))
-            row[f"{self.metric_type}_rolling_std_{w}"] = float(
-                np.std(window_vals, ddof=1) if len(window_vals) > 1 else 0.0
-            )
-            row[f"{self.metric_type}_rolling_min_{w}"] = float(np.min(window_vals))
-            row[f"{self.metric_type}_rolling_max_{w}"] = float(np.max(window_vals))
-
-        if categorical_value is not None and self.categorical_features:
-            for cat_feature in self.categorical_features:
-                row[cat_feature] = categorical_value
-
-        return pd.DataFrame([row], columns=self.metric_config.feature_cols)
-
-
-class RidgeFeatureBuilder(FeatureBuilder):
-    """
-    Ridge feature builder mirroring `make_features` from
-    `training/cpu_walkforward.ipynb` (§10, walk-forward Scheme 2).
+    Ridge feature builder mirroring `make_features` from the walk-forward
+    training notebooks (Yandex Handbook §10, Scheme 2). Used for all metrics
+    (CPU / RPS / error_rate).
 
     For each new point `y_t` we treat it as the "current" observation; the
     notebook used `series.shift(1).rolling(...)` so rolling stats / EWM are
@@ -78,7 +19,10 @@ class RidgeFeatureBuilder(FeatureBuilder):
     """
 
     def __init__(self, metric_config: MetricConfig):
-        super().__init__(metric_config)
+        self.metric_config = metric_config
+        self.metric_type = metric_config.metric_type
+        self.lags = metric_config.lag_list
+        self.windows = metric_config.rolling_windows
         self.ewm_spans = metric_config.ewm_spans or []
         self._declared_cols = metric_config.feature_cols
 
@@ -103,7 +47,7 @@ class RidgeFeatureBuilder(FeatureBuilder):
     def build_features(
         self,
         values: list[float],
-        categorical_value: int | None = None,  # noqa: ARG002 — unused for Ridge CPU
+        categorical_value: int | None = None,  # noqa: ARG002 — unused for Ridge
         current_ts: float | None = None,
     ) -> pd.DataFrame:
         need = self.min_history_points
@@ -114,7 +58,6 @@ class RidgeFeatureBuilder(FeatureBuilder):
 
         arr = np.asarray(values, dtype=float)
         # "Current" point = last value; history used for rolling/ewm is arr[:-1]
-        current = arr[-1]
         history = arr[:-1]
 
         row: dict[str, float] = {}
@@ -174,7 +117,9 @@ def _ewm_last(values: np.ndarray, span: int) -> float:
     return float(np.sum(weights * values) / np.sum(weights))
 
 
-def build_feature_builder(metric_config: MetricConfig) -> FeatureBuilder:
-    if metric_config.model_type == "ridge":
-        return RidgeFeatureBuilder(metric_config)
-    return FeatureBuilder(metric_config)
+# Backwards-compatible alias for collector type-hints.
+FeatureBuilder = RidgeFeatureBuilder
+
+
+def build_feature_builder(metric_config: MetricConfig) -> RidgeFeatureBuilder:
+    return RidgeFeatureBuilder(metric_config)

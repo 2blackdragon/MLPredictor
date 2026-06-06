@@ -2,55 +2,18 @@ import logging
 
 import joblib
 import pandas as pd
-from catboost import CatBoostRegressor
 
 from app.config import MetricConfig
 
 logger = logging.getLogger(__name__)
 
 
-class MetricPredictor:
-    """CatBoost predictor (RPS / error_rate)."""
-
-    def __init__(self, metric_config: MetricConfig):
-        self.metric_config = metric_config
-        self.metric_type = metric_config.metric_type
-        self.model: CatBoostRegressor | None = None
-        self._load()
-
-    def _load(self):
-        try:
-            model = CatBoostRegressor()
-            model.load_model(self.metric_config.model_path)
-            self.model = model
-            logger.info(
-                "CatBoost model loaded for '%s' from '%s'",
-                self.metric_type,
-                self.metric_config.model_path,
-            )
-        except Exception as e:
-            logger.error("Failed to load %s model: %s", self.metric_type, e)
-            raise
-
-    def _clip(self, raw: float) -> float:
-        if self.metric_type == "cpu":
-            return max(0.0, min(100.0, raw))
-        if self.metric_type == "error_rate":
-            return max(0.0, min(1.0, raw))
-        return max(0.0, raw)
-
-    def predict(self, features: pd.DataFrame) -> float:
-        if self.model is None:
-            raise RuntimeError(f"Model for '{self.metric_type}' is not loaded")
-        raw = float(self.model.predict(features)[0])
-        return self._clip(raw)
-
-
-class RidgePredictor(MetricPredictor):
+class RidgePredictor:
     """
-    Ridge predictor for CPU (Yandex Handbook §10.3, walk-forward Scheme 2).
+    Ridge predictor (CPU / RPS / error_rate).
 
-    Loads a single joblib bundle produced by `training/cpu_walkforward.ipynb`:
+    Loads a single joblib bundle produced by the corresponding
+    `training/*_walkforward.ipynb` notebook:
         {
             'model':   Ridge,
             'scaler':  StandardScaler,
@@ -97,6 +60,13 @@ class RidgePredictor(MetricPredictor):
             len(self.feature_cols),
         )
 
+    def _clip(self, raw: float) -> float:
+        if self.metric_type == "cpu":
+            return max(0.0, min(100.0, raw))
+        if self.metric_type == "error_rate":
+            return max(0.0, min(1.0, raw))
+        return max(0.0, raw)
+
     def predict(self, features: pd.DataFrame) -> float:
         if self.model is None or self.scaler is None:
             raise RuntimeError(f"Ridge model for '{self.metric_type}' is not loaded")
@@ -113,7 +83,9 @@ class RidgePredictor(MetricPredictor):
         return self._clip(raw)
 
 
-def build_predictor(metric_config: MetricConfig) -> MetricPredictor:
-    if metric_config.model_type == "ridge":
-        return RidgePredictor(metric_config)
-    return MetricPredictor(metric_config)
+# Backwards-compatible alias for collector type-hints.
+MetricPredictor = RidgePredictor
+
+
+def build_predictor(metric_config: MetricConfig) -> RidgePredictor:
+    return RidgePredictor(metric_config)
