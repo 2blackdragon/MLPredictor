@@ -147,34 +147,6 @@ class InfluxWriter:
             logger.error("Failed to write lag metric '%s': %s", metric_type, e)
 
     # -----------------------------
-    # ML METRICS
-    # -----------------------------
-    def write_ml_metrics(
-        self,
-        metric_type: str,
-        r2: float,
-        mae: float,
-        rmse: float,
-        handler: str | None = None,
-    ):
-        point = (
-            Point(f"{metric_type}_ml_quality")
-            .tag("metric", metric_type)
-            .field("r2", float(r2))
-            .field("mae", float(mae))
-            .field("rmse", float(rmse))
-            .time(datetime.now(timezone.utc), WritePrecision.S)
-        )
-
-        if handler:
-            point = point.tag("handler", handler)
-
-        try:
-            self.write_api.write(self.bucket, record=point)
-        except Exception as e:
-            logger.error("Failed to write ML metrics '%s': %s", metric_type, e)
-
-    # -----------------------------
     # CLOSE
     # -----------------------------
     def close(self):
