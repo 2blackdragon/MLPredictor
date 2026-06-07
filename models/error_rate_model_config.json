@@ -1,6 +1,5 @@
 {
   "model_type": "ridge",
-  "metric_type": "error_rate",
   "feature_cols": [
     "lag_1",
     "lag_2",
