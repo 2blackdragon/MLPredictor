@@ -56,6 +56,10 @@
               {
                 "id": "custom.lineStyle",
                 "value": { "dash": [8, 4] }
+              },
+              {
+                "id": "displayName",
+                "value": "Predicted Error Rate"
               }
             ]
           },
@@ -65,6 +69,10 @@
               {
                 "id": "color",
                 "value": { "mode": "fixed", "fixedColor": "green" }
+              },
+              {
+                "id": "displayName",
+                "value": "Actial Error Rate"
               }
             ]
           }
