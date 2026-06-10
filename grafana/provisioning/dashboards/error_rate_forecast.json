@@ -47,33 +47,18 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Predicted Error Rate (+5m)" },
+            "matcher": { "id": "byRegexp", "options": "/.*predicted.*/" },
             "properties": [
-              {
-                "id": "color",
-                "value": { "mode": "fixed", "fixedColor": "orange" }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": { "dash": [8, 4] }
-              },
-              {
-                "id": "displayName",
-                "value": "Predicted Error Rate"
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "custom.lineStyle", "value": { "dash": [8, 4] } },
+              { "id": "displayName", "value": "Прогноз (+5 мин)" }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Actual Error Rate" },
+            "matcher": { "id": "byRegexp", "options": "/.*actual.*/" },
             "properties": [
-              {
-                "id": "color",
-                "value": { "mode": "fixed", "fixedColor": "green" }
-              },
-              {
-                "id": "displayName",
-                "value": "Actial Error Rate"
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } },
+              { "id": "displayName", "value": "Фактическая ошибка" }
             ]
           }
         ]
@@ -82,13 +67,11 @@
       "targets": [
         {
           "refId": "A",
-          "alias": "Actual Error Rate",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> drop(columns: [\"metric\", \"type\", \"handler\"])"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"actual\") |> drop(columns: [\"metric\", \"type\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"Actual Error Rate\" }))"
         },
         {
           "refId": "B",
-          "alias": "Predicted Error Rate (+5m)",
-          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"])"
+          "query": "from(bucket: \"${INFLUXDB_BUCKET}\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"error_rate\") |> filter(fn: (r) => r._field == \"value\") |> filter(fn: (r) => r.type == \"predicted\" and r.horizon == \"300s\") |> drop(columns: [\"metric\", \"type\", \"horizon\", \"handler\"]) |> map(fn: (r) => ({ r with _field: \"Predicted Error Rate (+5m)\" }))"
         }
       ]
     },
