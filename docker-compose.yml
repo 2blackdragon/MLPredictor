@@ -21,13 +21,12 @@ services:
   ml-monitoring:
     build: .
     ports:
-      - "8005:8000"  # Изменено: на хосте порт 8005, внутри контейнера 8000
+      - "8005:8000"
     environment:
       INFLUXDB_URL: "http://influxdb:8086"
       INFLUXDB_TOKEN: "my-super-secret-token"
       INFLUXDB_ORG: "mlmonitor"
       INFLUXDB_BUCKET: "cpu_monitor"
-      # Теперь мы можем дотянуться до Prometheus из банковского проекта напрямую по имени контейнера!
       TEST_PROMETHEUS_URL: "http://banking-prometheus:9090"
       CPU_METRIC_NAME: "cpu_usage_percent"
       SCRAPE_INTERVAL_SEC: "15"
@@ -36,7 +35,7 @@ services:
     restart: unless-stopped
     networks:
       - ml_internal
-      - banking_network  # Подключаем к сети банковского проекта
+      - banking_network
 
   grafana:
     image: grafana/grafana:11.2.0
@@ -52,8 +51,6 @@ services:
       INFLUXDB_ORG: mlmonitor
       INFLUXDB_BUCKET: cpu_monitor
       INFLUXDB_TOKEN: my-super-secret-token
-      
-      # --- ДОБАВЛЯЕМ ЭТИ ТРИ СТРОКИ ---
       GF_SECURITY_COOKIE_NAME: grafana_session_ml
       GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/ml/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
@@ -67,9 +64,8 @@ volumes:
   grafana_data:
 
 networks:
-  ml_internal:  # Внутренняя сеть только для этого проекта (изоляция Influx и Grafana)
+  ml_internal:
+    driver: bridge
   banking_network:
     external: true
-    # Укажите точное имя сети банковского проекта. 
-    # Посмотреть его можно через команду: docker network ls
-    name: docker_default
+    name: banking_network
