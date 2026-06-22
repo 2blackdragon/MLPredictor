@@ -124,7 +124,7 @@ class Settings(BaseSettings):
             ),
             "error_rate": MetricConfig(
                 metric_type="error_rate",
-                prometheus_query="sum(rate(http_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+                prometheus_query="100 * sum(rate(http_requests_total{status=~\"4..|5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
                 influx_measurement="error_rate",
                 model_path="models/error_rate_forecast_model.joblib",
                 model_config_path="models/error_rate_model_config.json",

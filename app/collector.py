@@ -25,31 +25,6 @@ class MetricCollectorState:
         self.last_predicted: float | None = None
         self.last_features: list[float] = []
 
-    def calculate_ml_metrics(self) -> dict[str, float] | None:
-        n = len(self.actual_history)
-        if n < 15:
-            return None
-
-        y_true = list(self.actual_history)
-        y_pred = list(self.predicted_history)
-
-        mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / n
-        mse = sum((t - p) ** 2 for t, p in zip(y_true, y_pred)) / n
-        rmse = math.sqrt(mse)
-
-        mean_true = sum(y_true) / n
-        ss_res = sum((t - p) ** 2 for t, p in zip(y_true, y_pred))
-        ss_tot = sum((t - mean_true) ** 2 for t in y_true)
-
-        if ss_tot < 1e-5:
-            r2 = 1.0 if ss_res < 1e-5 else 0.0
-        else:
-            r2 = 1.0 - (ss_res / ss_tot)
-
-        r2 = max(r2, -1.0)
-
-        return {"r2": r2, "mae": mae, "rmse": rmse}
-
 
 class HandlerCollectorState:
     def __init__(self, handler: str):
@@ -62,31 +37,6 @@ class HandlerCollectorState:
         self.last_actual: float | None = None
         self.last_predicted: float | None = None
         self.last_features: list[float] = []
-
-    def calculate_ml_metrics(self) -> dict[str, float] | None:
-        n = len(self.actual_history)
-        if n < 15:
-            return None
-
-        y_true = list(self.actual_history)
-        y_pred = list(self.predicted_history)
-
-        mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / n
-        mse = sum((t - p) ** 2 for t, p in zip(y_true, y_pred)) / n
-        rmse = math.sqrt(mse)
-
-        mean_true = sum(y_true) / n
-        ss_res = sum((t - p) ** 2 for t, p in zip(y_true, y_pred))
-        ss_tot = sum((t - mean_true) ** 2 for t in y_true)
-
-        if ss_tot < 1e-5:
-            r2 = 1.0 if ss_res < 1e-5 else 0.0
-        else:
-            r2 = 1.0 - (ss_res / ss_tot)
-
-        r2 = max(r2, -1.0)
-
-        return {"r2": r2, "mae": mae, "rmse": rmse}
 
 
 metric_states = {
@@ -171,19 +121,6 @@ async def _collect_single_metric(
         state.actual_history.append(actual)
         state.predicted_history.append(old_predicted)
 
-        metrics = state.calculate_ml_metrics()
-        if metrics:
-            influx.write_ml_metrics(
-                metric_type,
-                r2=metrics["r2"],
-                mae=metrics["mae"],
-                rmse=metrics["rmse"],
-            )
-            logger.info(
-                f"[{metric_type}] Metrics updated (window={len(state.actual_history)}) | "
-                f"R²={metrics['r2']:.3f} | MAE={metrics['mae']:.2f} | RMSE={metrics['rmse']:.2f}"
-            )
-
         logger.info(f"[{metric_type}] Prediction matured | error={error:.3f}")
 
     state.predictions_buffer.append(predicted)
@@ -266,20 +203,6 @@ async def _collect_rps_per_handler(
 
             state.actual_history.append(actual)
             state.predicted_history.append(old_predicted)
-
-            metrics = state.calculate_ml_metrics()
-            if metrics:
-                influx.write_ml_metrics(
-                    "rps",
-                    r2=metrics["r2"],
-                    mae=metrics["mae"],
-                    rmse=metrics["rmse"],
-                    handler=handler,
-                )
-                logger.info(
-                    f"[rps:{handler}] Metrics updated (window={len(state.actual_history)}) | "
-                    f"R²={metrics['r2']:.3f} | MAE={metrics['mae']:.2f} | RMSE={metrics['rmse']:.2f}"
-                )
 
             logger.info(f"[rps:{handler}] Prediction matured | error={error:.3f}")
 

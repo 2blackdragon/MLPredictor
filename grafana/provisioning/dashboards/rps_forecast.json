@@ -66,7 +66,7 @@
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "reqps",
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -94,7 +94,7 @@
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "reqps",
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -122,7 +122,7 @@
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "reqps",
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -177,7 +177,7 @@
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
+          "unit": "reqps",
           "min": 0,
           "custom": { "lineWidth": 1.5, "fillOpacity": 10 }
         }

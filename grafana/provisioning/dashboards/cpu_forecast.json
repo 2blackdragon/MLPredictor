@@ -126,13 +126,12 @@
 
     {
       "id": 4,
-      "title": "Prediction Absolute Error",
+      "title": "Prediction Absolute Error, п.п.",
       "type": "stat",
       "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -181,13 +180,12 @@
 
     {
       "id": 6,
-      "title": "Prediction Error Over Time",
+      "title": "Prediction Error Over Time, п.п.",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
       "datasource": { "type": "influxdb", "uid": "InfluxDB" },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
           "min": 0,
           "color": { "mode": "fixed", "fixedColor": "red" },
           "custom": {
