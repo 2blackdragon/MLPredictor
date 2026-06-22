@@ -78,7 +78,7 @@
 
     {
       "id": 2,
-      "title": "Current Error Rate, п.п.",
+      "title": "Current Error Rate",
       "type": "stat",
       "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
 
@@ -89,6 +89,7 @@
 
       "fieldConfig": {
         "defaults": {
+          "unit": "percent",
           "min": 0,
           "max": 1,
           "thresholds": {
@@ -112,7 +113,7 @@
 
     {
       "id": 3,
-      "title": "Predicted Error Rate (5 min ahead), п.п.",
+      "title": "Predicted Error Rate (5 min ahead)",
       "type": "stat",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
 
@@ -123,6 +124,7 @@
 
       "fieldConfig": {
         "defaults": {
+          "unit": "percent",
           "min": 0,
           "max": 1,
           "thresholds": {
@@ -146,7 +148,7 @@
 
     {
       "id": 4,
-      "title": "Prediction Absolute Error",
+      "title": "Prediction Absolute Error, п.п.",
       "type": "stat",
       "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
 
@@ -157,7 +159,6 @@
 
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
           "min": 0,
           "max": 1,
           "thresholds": {
@@ -214,7 +215,7 @@
 
     {
       "id": 6,
-      "title": "Prediction Error Over Time",
+      "title": "Prediction Error Over Time, п.п.",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 14, "w": 24, "h": 7 },
 
@@ -225,7 +226,6 @@
 
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
           "min": 0,
           "color": { "mode": "fixed", "fixedColor": "red" },
           "custom": {
